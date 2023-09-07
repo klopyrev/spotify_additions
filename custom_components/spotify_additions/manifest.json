@@ -1,0 +1,12 @@
+{
+  "domain": "spotify_additions",
+  "name": "Additional service calls for Spotify",
+  "integration_type": "service",
+  "dependencies": [
+    "spotify"
+  ],
+  "codeowners": [
+      "@klopyrev"
+  ],
+  "version": "0.0.1"
+}
