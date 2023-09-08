@@ -16,6 +16,13 @@ log = logging.getLogger(__name__)
 CONFIG_SCHEMA = vol.Schema({}, extra=vol.ALLOW_EXTRA)
 
 
+def get_current_track_id(data: HomeAssistantSpotifyData) -> str | None:
+    current_track = data.client.current_user_playing_track()
+    if current_track is None:
+        return None
+    return current_track["item"]["id"]
+
+
 def delete_existing_playlist(data: HomeAssistantSpotifyData):
     offset = 0
     limit = 50
@@ -70,17 +77,28 @@ def start_playback(data: HomeAssistantSpotifyData, uri: str):
 
 
 def handle_create_song_radio(call: ServiceCall, data: HomeAssistantSpotifyData):
-    current_track = data.client.current_user_playing_track()
-    if current_track is None:
+    current_track_id = get_current_track_id(data)
+    if current_track_id is None:
         return
 
     delete_existing_playlist(data)
 
-    recommended_track_ids = get_recommended_track_ids(data, current_track["item"]["id"])
+    recommended_track_ids = get_recommended_track_ids(data, current_track_id)
 
     playlist_uri = create_new_playlist(data, recommended_track_ids)
 
     start_playback(data, playlist_uri)
+
+
+def handle_favorite_song(call: ServiceCall, data: HomeAssistantSpotifyData):
+    current_track_id = get_current_track_id(data)
+    if current_track_id is None:
+        return
+
+    if data.client.current_user_saved_tracks_contains([current_track_id])[0]:
+        return
+
+    data.client.current_user_saved_tracks_add([current_track_id])
 
 
 def setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -93,6 +111,11 @@ def setup(hass: HomeAssistant, config: ConfigType) -> bool:
         DOMAIN,
         "create_song_radio",
         lambda call: handle_create_song_radio(call, data),
+    )
+    hass.services.register(
+        DOMAIN,
+        "favorite_song",
+        lambda call: handle_favorite_song(call, data),
     )
 
     return True
